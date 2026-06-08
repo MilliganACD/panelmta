@@ -1,0 +1,6 @@
+{
+  "name": "Sports Academy POS",
+  "description": "Sistema de Punto de Venta (POS) completo para quiosco de academia deportiva, con control de inventario, caja, cuentas por cobrar, clientes y reportes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
