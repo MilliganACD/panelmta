@@ -91,6 +91,9 @@ const getLocalData = () => {
 
 // --- EXPORTED ROUTINES ---
 
+// Helper to enforce timeout on requests
+const timeout = (ms: number) => new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
+
 // 1. Initial Data Loader
 export const getStoredData = async () => {
   // FALLBACK: Local Storage
@@ -99,14 +102,72 @@ export const getStoredData = async () => {
   }
 
   try {
-    // A. Fetch Products
-    const { data: dbProducts, error: prodErr } = await supabase
-      .from('products')
-      .select('*')
-      .order('name', { ascending: true });
-    if (prodErr) throw prodErr;
+    // Run all database fetches in parallel with a 5 second timeout limit
+    const [
+      prodRes,
+      custRes,
+      ventasRes,
+      movRes,
+      sessionRes,
+      usersRes
+    ] = await Promise.race([
+      Promise.all([
+        supabase.from('products').select('*').order('name', { ascending: true }),
+        supabase.from('customers').select(`
+          id,
+          name,
+          phone,
+          credit_limit,
+          current_debt,
+          total_purchases,
+          customer_debts (
+            id,
+            date,
+            product_name,
+            price,
+            quantity
+          )
+        `).order('name', { ascending: true }),
+        supabase.from('ventas').select(`
+          id,
+          timestamp,
+          customer_id,
+          customer_name,
+          total,
+          payment_method,
+          paid_amount,
+          pending_amount,
+          cashier_name,
+          status,
+          venta_items (
+            product_id,
+            product_name,
+            price,
+            quantity
+          )
+        `).order('timestamp', { ascending: false }),
+        supabase.from('cash_movements').select('*').order('timestamp', { ascending: false }),
+        supabase.from('cash_sessions').select('*').eq('id', 'active').maybeSingle(),
+        supabase.from('users').select('*')
+      ]),
+      timeout(5000)
+    ]);
 
-    const products: Product[] = (dbProducts || []).map(p => ({
+    if (prodRes.error) throw prodRes.error;
+    if (custRes.error) throw custRes.error;
+    if (ventasRes.error) throw ventasRes.error;
+    if (movRes.error) throw movRes.error;
+    if (sessionRes.error) throw sessionRes.error;
+    if (usersRes.error) throw usersRes.error;
+
+    const dbProducts = prodRes.data || [];
+    const dbCustomers = custRes.data || [];
+    const dbVentas = ventasRes.data || [];
+    const dbMovements = movRes.data || [];
+    const dbSessions = sessionRes.data;
+    const dbUsers = usersRes.data || [];
+
+    const products: Product[] = dbProducts.map(p => ({
       id: p.id,
       name: p.name,
       category: p.category as any,
@@ -118,28 +179,7 @@ export const getStoredData = async () => {
       imageUrl: p.image_url || ''
     }));
 
-    // B. Fetch Customers and their debts
-    const { data: dbCustomers, error: custErr } = await supabase
-      .from('customers')
-      .select(`
-        id,
-        name,
-        phone,
-        credit_limit,
-        current_debt,
-        total_purchases,
-        customer_debts (
-          id,
-          date,
-          product_name,
-          price,
-          quantity
-        )
-      `)
-      .order('name', { ascending: true });
-    if (custErr) throw custErr;
-
-    const customers: Customer[] = (dbCustomers || []).map(c => ({
+    const customers: Customer[] = dbCustomers.map(c => ({
       id: c.id,
       name: c.name,
       phone: c.phone || '',
@@ -155,31 +195,7 @@ export const getStoredData = async () => {
       }))
     }));
 
-    // C. Fetch Ventas and their items
-    const { data: dbVentas, error: ventaErr } = await supabase
-      .from('ventas')
-      .select(`
-        id,
-        timestamp,
-        customer_id,
-        customer_name,
-        total,
-        payment_method,
-        paid_amount,
-        pending_amount,
-        cashier_name,
-        status,
-        venta_items (
-          product_id,
-          product_name,
-          price,
-          quantity
-        )
-      `)
-      .order('timestamp', { ascending: false });
-    if (ventaErr) throw ventaErr;
-
-    const ventas: Venta[] = (dbVentas || []).map(v => ({
+    const ventas: Venta[] = dbVentas.map(v => ({
       id: v.id,
       timestamp: v.timestamp,
       customerId: v.customer_id,
@@ -198,14 +214,7 @@ export const getStoredData = async () => {
       }))
     }));
 
-    // D. Fetch Cash Movements
-    const { data: dbMovements, error: movErr } = await supabase
-      .from('cash_movements')
-      .select('*')
-      .order('timestamp', { ascending: false });
-    if (movErr) throw movErr;
-
-    const movements: CashMovement[] = (dbMovements || []).map(m => ({
+    const movements: CashMovement[] = dbMovements.map(m => ({
       id: m.id,
       timestamp: m.timestamp,
       type: m.type as 'INGRESO' | 'EGRESO',
@@ -213,14 +222,6 @@ export const getStoredData = async () => {
       category: m.category,
       amount: Number(m.amount)
     }));
-
-    // E. Fetch Active Session
-    const { data: dbSessions, error: sessionErr } = await supabase
-      .from('cash_sessions')
-      .select('*')
-      .eq('id', 'active')
-      .maybeSingle();
-    if (sessionErr) throw sessionErr;
 
     let session: CashSession = {
       status: 'CERRADA',
@@ -243,13 +244,7 @@ export const getStoredData = async () => {
       };
     }
 
-    // F. Fetch users list from database
-    const { data: dbUsers, error: usersErr } = await supabase
-      .from('users')
-      .select('*');
-    if (usersErr) throw usersErr;
-
-    const users: User[] = (dbUsers || []).map(u => ({
+    const users: User[] = dbUsers.map(u => ({
       id: u.id,
       name: u.name,
       role: u.role as any,
