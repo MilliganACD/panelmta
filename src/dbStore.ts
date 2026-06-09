@@ -250,7 +250,7 @@ export const getStoredData = async () => {
       role: u.role as any,
       shift: u.shift as any,
       username: u.username,
-      email: u.email || '',
+      email: u.email || (u.id === 'user-1' ? 'miligantennisacademy@gmail.com' : ''),
       password: u.password,
       avatarUrl: u.avatar_url || ''
     }));
