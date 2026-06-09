@@ -26,9 +26,9 @@ export default function CajaView({
 }: CajaViewProps) {
   
   // Local opening/closing states
-  const [openingCash, setOpeningCash] = useState<string>('250.00'); // default matching mockup initial
-  const [physicalCash, setPhysicalCash] = useState<string>('2827.50'); // default matching expected physical counted
-  const [closingNotes, setClosingNotes] = useState<string>('Turno Mañana completado sin novedades.');
+  const [openingCash, setOpeningCash] = useState<string>('0.00');
+  const [physicalCash, setPhysicalCash] = useState<string>(session.initialAmount > 0 ? session.initialAmount.toFixed(2) : '0.00');
+  const [closingNotes, setClosingNotes] = useState<string>('');
   const [verifiedCheck, setVerifiedCheck] = useState<boolean>(false);
 
   // Manual movement logging states
@@ -78,6 +78,12 @@ export default function CajaView({
     if (difference < 0) return { text: 'Faltante', style: 'bg-rose-100 text-rose-800 font-bold animate-pulse' };
     return { text: 'Sobrante', style: 'bg-teal-100 text-teal-800 font-bold' };
   }, [difference]);
+
+  const cashPercentage = useMemo(() => {
+    const totalSales = liveSessionSales.efectivo + liveSessionSales.yape + liveSessionSales.plin;
+    if (totalSales === 0) return 0;
+    return Math.round((liveSessionSales.efectivo / totalSales) * 100);
+  }, [liveSessionSales]);
 
   const handleOpen = (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,10 +261,10 @@ export default function CajaView({
                 <div className="relative w-32 h-32 flex-shrink-0">
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <circle className="text-slate-100" cx="18" cy="18" fill="transparent" r="16" stroke="currentColor" strokeWidth="2.5"></circle>
-                    <circle className="text-teal-600 transition-all" cx="18" cy="18" fill="transparent" r="16" stroke="currentColor" strokeDasharray="100" strokeDashoffset="20" strokeWidth="2.5"></circle>
+                    <circle className="text-teal-600 transition-all" cx="18" cy="18" fill="transparent" r="16" stroke="currentColor" strokeDasharray="100" strokeDashoffset={100 - cashPercentage} strokeWidth="2.5"></circle>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                    <span className="text-xl font-black text-slate-800 leading-none">80%</span>
+                    <span className="text-xl font-black text-slate-800 leading-none">{cashPercentage}%</span>
                     <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider mt-0.5">Efectivo</span>
                   </div>
                 </div>
