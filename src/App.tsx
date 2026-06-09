@@ -32,9 +32,10 @@ import ClientesView from './components/ClientesView';
 import ReportesView from './components/ReportesView';
 import ConfiguracionView from './components/ConfiguracionView';
 import LoginView from './components/LoginView';
+import ContabilidadView from './components/ContabilidadView';
 
 // Nav icons
-import { LayoutDashboard, ShoppingCart, Percent, ClipboardList, Wallet, Users, BarChart3, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Percent, ClipboardList, Wallet, Users, BarChart3, Settings, LogOut, Calculator } from 'lucide-react';
 
 // Date Formatting Helpers
 const getNowString = () => {
@@ -562,6 +563,7 @@ export default function App() {
     { name: 'Cuentas por Cobrar', icon: Percent },
     { name: 'Inventario', icon: ClipboardList },
     { name: 'Caja', icon: Wallet },
+    { name: 'Contabilidad', icon: Calculator },
     { name: 'Clientes', icon: Users },
     { name: 'Reportes', icon: BarChart3 },
     { name: 'Configuración', icon: Settings },
@@ -715,6 +717,15 @@ export default function App() {
               onOpenSession={handleOpenSession}
               onCloseSession={handleCloseSession}
               onAddMovement={handleAddMovement}
+            />
+          )}
+
+          {activeTab === 'Contabilidad' && (
+            <ContabilidadView 
+              ventas={ventas}
+              movements={movements}
+              products={products}
+              activeUser={activeUser}
             />
           )}
 
