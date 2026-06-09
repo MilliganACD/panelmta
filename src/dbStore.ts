@@ -34,7 +34,7 @@ const DEFAULT_CASHIER: User = {
   shift: 'MAÑANA',
   username: 'AdminMTA',
   email: 'miligantennisacademy@gmail.com',
-  password: 'Control2026',
+  password: 'b65efa4c5b68758fcb1bfd441dc24b337aa786852fc88d03fa00015540bc4326',
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
 };
 
@@ -46,7 +46,7 @@ const DEFAULT_USERS_LIST: User[] = [
     role: 'VENDEDOR',
     shift: 'TARDE',
     username: 'vendedor',
-    password: '123',
+    password: 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80'
   }
 ];
@@ -741,7 +741,7 @@ export const restoreDefaults = async () => {
     await supabase.from('users').delete().neq('id', '');
 
     const seedUsers = [
-      { id: 'user-1', name: 'Admin MTA', role: 'ADMIN', shift: 'MAÑANA', username: 'AdminMTA', email: 'miligantennisacademy@gmail.com', password: 'Control2026', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80' }
+      { id: 'user-1', name: 'Admin MTA', role: 'ADMIN', shift: 'MAÑANA', username: 'AdminMTA', email: 'miligantennisacademy@gmail.com', password: 'b65efa4c5b68758fcb1bfd441dc24b337aa786852fc88d03fa00015540bc4326', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80' }
     ];
     await supabase.from('users').insert(seedUsers);
 

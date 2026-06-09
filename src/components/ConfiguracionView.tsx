@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { ShieldCheck, UserPlus, Trash2, Database, Settings, ShieldAlert, Plus, Layers, UserX } from 'lucide-react';
+import { hashPassword } from '../utils/crypto';
 
 interface ConfiguracionViewProps {
   users: User[];
@@ -38,7 +39,7 @@ export default function ConfiguracionView({
     }
   };
 
-  const handleAddOperator = (e: React.FormEvent) => {
+  const handleAddOperator = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeUser.role !== 'ADMIN') return;
 
@@ -68,12 +69,14 @@ export default function ConfiguracionView({
       'VENDEDOR': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80'
     };
 
+    const hashedPassword = await hashPassword(password);
+
     const newOperator: User = {
       id: `user-${Date.now()}`,
       name: name.trim(),
       username: username.trim(),
       email: email.trim() || undefined,
-      password: password,
+      password: hashedPassword,
       role,
       shift,
       avatarUrl: defaultAvatars[role]

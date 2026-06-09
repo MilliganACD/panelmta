@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Lock, User as UserIcon, ShieldAlert } from 'lucide-react';
+import { hashPassword } from '../utils/crypto';
 
 interface LoginViewProps {
   users: User[];
@@ -18,7 +19,7 @@ export default function LoginView({ users, onLogin }: LoginViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [shaking, setShaking] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -27,9 +28,11 @@ export default function LoginView({ users, onLogin }: LoginViewProps) {
       return;
     }
 
+    const hashedPassword = await hashPassword(password);
+
     // Find the user by username & password case sensitive/insensitive depending on preferences
     const matched = users.find(
-      u => (u.username?.toLowerCase() === username.trim().toLowerCase() || u.email?.toLowerCase() === username.trim().toLowerCase()) && u.password === password
+      u => (u.username?.toLowerCase() === username.trim().toLowerCase() || u.email?.toLowerCase() === username.trim().toLowerCase()) && u.password === hashedPassword
     );
 
     if (matched) {
