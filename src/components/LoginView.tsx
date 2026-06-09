@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Lock, User as UserIcon, ShieldAlert } from 'lucide-react';
+import { Lock, User as UserIcon, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 import { hashPassword } from '../utils/crypto';
 
 interface LoginViewProps {
@@ -16,6 +16,7 @@ interface LoginViewProps {
 export default function LoginView({ users, onLogin }: LoginViewProps) {
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [shaking, setShaking] = useState<boolean>(false);
 
@@ -98,12 +99,19 @@ export default function LoginView({ users, onLogin }: LoginViewProps) {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
               <input 
-                type="password" 
+                type={showPassword ? 'text' : 'password'} 
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm font-semibold text-white placeholder-slate-600 transition"
+                className="w-full pl-11 pr-12 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm font-semibold text-white placeholder-slate-600 transition"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-350 focus:outline-none cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
