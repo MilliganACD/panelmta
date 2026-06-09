@@ -102,7 +102,7 @@ export default function CajaView({
     }
 
     onCloseSession(counted, closingNotes);
-    alert(`🎉 Caja cerrada con un saldo arquedado de S/ ${counted.toFixed(2)}. Reporte enviado al Administrador.`);
+    alert(`🎉 Caja cerrada con un saldo arqueado de S/ ${counted.toFixed(2)} (Esperado efectivo: S/ ${liveExpectedCashTotal.toFixed(2)}). Recaudado en Yape: S/ ${liveSessionSales.yape.toFixed(2)}, Plin: S/ ${liveSessionSales.plin.toFixed(2)}. Reporte enviado al Administrador.`);
   };
 
   const handleAddManualMovement = (e: React.FormEvent) => {
@@ -354,10 +354,27 @@ export default function CajaView({
                 </h4>
                 
                 <form onSubmit={handleClose} className="space-y-4">
-                  {/* Readout esperado */}
+                  {/* Readout esperado de Efectivo */}
                   <div className="p-3.5 bg-white rounded-lg border-l-4 border-slate-900 border border-slate-200">
-                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Sistema (Esperado en Efectivo)</span>
+                    <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Sistema (Esperado en Efectivo)</span>
                     <p className="text-2xl font-black text-slate-900 mt-1 font-mono">S/ {liveExpectedCashTotal.toFixed(2)}</p>
+                    <span className="text-[10px] text-slate-400 mt-1.5 block leading-relaxed">
+                      Apertura: S/ {session.initialAmount.toFixed(2)} + Ventas: S/ {liveSessionSales.efectivo.toFixed(2)} {totalMovementsCashDiff >= 0 ? '+' : '-'} Movs: S/ {Math.abs(totalMovementsCashDiff).toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Readout esperado de Yape */}
+                  <div className="p-3.5 bg-white rounded-lg border-l-4 border-fuchsia-500 border border-slate-200">
+                    <span className="text-fuchsia-700 text-[10px] uppercase font-bold tracking-wider">Sistema (Esperado en Yape)</span>
+                    <p className="text-2xl font-black text-fuchsia-800 mt-1 font-mono">S/ {liveSessionSales.yape.toFixed(2)}</p>
+                    <span className="text-[10px] text-slate-400 mt-1.5 block">Total cobrado vía Yape en este turno</span>
+                  </div>
+
+                  {/* Readout esperado de Plin */}
+                  <div className="p-3.5 bg-white rounded-lg border-l-4 border-cyan-500 border border-slate-200">
+                    <span className="text-cyan-750 text-[10px] uppercase font-bold tracking-wider">Sistema (Esperado en Plin)</span>
+                    <p className="text-2xl font-black text-cyan-800 mt-1 font-mono">S/ {liveSessionSales.plin.toFixed(2)}</p>
+                    <span className="text-[10px] text-slate-400 mt-1.5 block">Total cobrado vía Plin en este turno</span>
                   </div>
 
                   {/* Input físico */}

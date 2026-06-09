@@ -40,16 +40,16 @@ export default function ClientesView({
 
   const handleSubmitCustomer = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone) {
-      alert('⚠️ Por favor llene todos los campos requeridos');
+    if (!name) {
+      alert('⚠️ Por favor ingrese el nombre del cliente');
       return;
     }
 
     const newCustomer: Customer = {
       id: `cust-${Date.now()}`,
       name,
-      phone,
-      creditLimit: parseFloat(creditLimit) || 50.00,
+      phone: phone.trim(),
+      creditLimit: creditLimit.trim() !== '' ? parseFloat(creditLimit) || 0.00 : 0.00,
       currentDebt: 0.00,
       totalPurchases: 0,
       debts: []
@@ -253,24 +253,23 @@ export default function ClientesView({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-black text-slate-500 block mb-1">Teléfono Móvil (WhatsApp) *</label>
+                  <label className="text-[10px] uppercase font-black text-slate-500 block mb-1">Teléfono Móvil (Opcional)</label>
                   <input 
                     type="text" 
-                    placeholder="987654321"
-                    required
+                    placeholder="987654321 (Opcional)"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:outline-none"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-black text-slate-500 block mb-1">Límite de Crédito Permitido (S/)</label>
+                  <label className="text-[10px] uppercase font-black text-slate-500 block mb-1">Límite de Crédito (Opcional)</label>
                   <input 
                     type="number" 
-                    placeholder="50.00"
+                    placeholder="E.g. 50.00 (Opcional)"
                     value={creditLimit}
                     onChange={(e) => setCreditLimit(e.target.value)}
-                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:outline-none"
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
               </div>

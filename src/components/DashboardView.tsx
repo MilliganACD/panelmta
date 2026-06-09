@@ -23,16 +23,18 @@ export default function DashboardView({
   onNavigate
 }: DashboardViewProps) {
   
-  // Calculate stats from actual state
-  const todayStr = '2026-06-06'; // Representing today under localized simulation
+  // Calculate stats from actual state dynamically
+  const today = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const todayPrefix = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
   
   const todaySales = ventas
-    .filter(v => v.timestamp.startsWith(todayStr) && v.status === 'COMPLETADA')
+    .filter(v => v.timestamp.startsWith(todayPrefix) && v.status === 'COMPLETADA')
     .reduce((sum, v) => sum + v.total, 0);
 
   const monthSales = ventas
     .filter(v => v.status === 'COMPLETADA')
-    .reduce((sum, v) => sum + v.total, 0) + 5320 - ventas.reduce((sum, v) => sum + v.total, 0); // Seed plus additions
+    .reduce((sum, v) => sum + v.total, 0);
 
   const totalDebt = customers.reduce((sum, c) => sum + c.currentDebt, 0);
   const customersWithDebt = customers.filter(c => c.currentDebt > 0).length;
@@ -74,7 +76,7 @@ export default function DashboardView({
           </div>
           <div className="mt-4">
             <span className="text-2xl font-bold text-slate-900">S/ {todaySales.toFixed(2)}</span>
-            <p className="text-xs text-teal-600 font-medium mt-1">S/ 450.00 Base + Live</p>
+            <p className="text-xs text-teal-600 font-semibold mt-1">Ventas reales registradas</p>
           </div>
         </div>
 
