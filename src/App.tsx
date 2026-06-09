@@ -36,6 +36,25 @@ import LoginView from './components/LoginView';
 // Nav icons
 import { LayoutDashboard, ShoppingCart, Percent, ClipboardList, Wallet, Users, BarChart3, Settings, LogOut } from 'lucide-react';
 
+// Date Formatting Helpers
+const getNowString = () => {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+
+const getLogDateString = () => {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(now.getMonth() + 1)}/${pad(now.getDate())}  ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+
+const getDebtDateString = () => {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
+
 export default function App() {
   
   // Navigation active tab
@@ -55,11 +74,7 @@ export default function App() {
   const [activeUser, setActiveUser] = useState<User | null>(null);
 
   // Manual log of inventory adjustments
-  const [inventoryLogs, setInventoryLogs] = useState<{ date: string; type: string; productName: string; delta: number }[]>([
-    { date: '06/08  10:15', type: 'Venta', productName: 'Snickers Bar 50g', delta: -1 },
-    { date: '06/08  09:00', type: 'Abastecer', productName: 'Gatorade Cool Blue 500ml', delta: 24 },
-    { date: '06/08  11:22', type: 'Venta', productName: 'Agua San Mateo 600ml', delta: -2 }
-  ]);
+  const [inventoryLogs, setInventoryLogs] = useState<{ date: string; type: string; productName: string; delta: number }[]>([]);
 
   // Load from database store on start and setup Realtime subscription
   useEffect(() => {
@@ -162,7 +177,7 @@ export default function App() {
   }) => {
     if (!session || !activeUser) return;
 
-    const todayStr = '2026-06-08 15:45'; // Simulation localization
+    const todayStr = getNowString();
 
     // Generate Venta Item
     const newVenta: Venta = {
@@ -190,7 +205,7 @@ export default function App() {
       if (cartItem) {
         // Log movement
         setInventoryLogs(prev => [
-          { date: '06/08  16:12', type: 'Venta', productName: p.name, delta: -cartItem.quantity },
+          { date: getLogDateString(), type: 'Venta', productName: p.name, delta: -cartItem.quantity },
           ...prev
         ]);
         return {
@@ -209,7 +224,7 @@ export default function App() {
           productName: cartItem.product.name,
           price: cartItem.product.price * cartItem.quantity,
           quantity: cartItem.quantity,
-          date: '06-08'
+          date: getDebtDateString()
         }));
 
         return {
@@ -256,7 +271,7 @@ export default function App() {
   const handleRegisterPayment = (customerId: string, amountPaid: number) => {
     if (!session || !activeUser) return;
 
-    const todayStr = '2026-06-08 16:00';
+    const todayStr = getNowString();
 
     // Update Customer debt totals and debts collection
     const updatedCustomers = customers.map(c => {
@@ -324,7 +339,7 @@ export default function App() {
     if (diff !== 0) {
       setInventoryLogs(prev => [
         { 
-          date: '06/08  16:15', 
+          date: getLogDateString(), 
           type: diff > 0 ? 'Abastecer' : 'Ajuste', 
           productName: originalPro?.name || 'Producto', 
           delta: diff 

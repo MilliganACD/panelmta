@@ -143,7 +143,9 @@ export default function InventarioView({
         </div>
         <div className="bg-white p-5 rounded-xl border border-slate-200">
           <span className="text-slate-400 text-[10px] font-black uppercase tracking-wider block">Categorías</span>
-          <p className="text-3xl font-black text-slate-800 mt-2 font-mono">18</p>
+          <p className="text-3xl font-black text-slate-800 mt-2 font-mono">
+            {new Set(products.map(p => p.category)).size}
+          </p>
         </div>
         <div className="bg-teal-50 p-5 rounded-xl border border-teal-200">
           <span className="text-teal-700 text-[10px] font-black uppercase tracking-wider block">Valor de Venta</span>
