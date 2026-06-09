@@ -24,7 +24,7 @@ interface VentaViewProps {
   onOpenSession: (amount: number) => void;
 }
 
-const CATEGORIES = ['Todos', 'Bebidas', 'Galletas', 'Chocolates', 'Snacks', 'Dulces'] as const;
+const CATEGORIES = ['Todos', 'Bebidas', 'Galletas', 'Chocolates', 'Snacks', 'Dulces', 'Accesorios'] as const;
 
 export default function VentaView({
   products,

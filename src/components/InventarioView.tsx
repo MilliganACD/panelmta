@@ -78,7 +78,8 @@ export default function InventarioView({
       'Galletas': 'https://images.unsplash.com/photo-1558961309-dbdf0003ed31?w=500&auto=format&fit=crop&q=60',
       'Chocolates': 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=500&auto=format&fit=crop&q=60',
       'Snacks': 'https://images.unsplash.com/photo-1599490659213-e2b9527ec087?w=500&auto=format&fit=crop&q=60',
-      'Dulces': 'https://images.unsplash.com/photo-1581798459219-318e76aeef7b?w=500&auto=format&fit=crop&q=60'
+      'Dulces': 'https://images.unsplash.com/photo-1581798459219-318e76aeef7b?w=500&auto=format&fit=crop&q=60',
+      'Accesorios': 'https://images.unsplash.com/photo-1606902960316-3a4793e56f70?w=500&auto=format&fit=crop&q=60'
     };
 
     const newProd: Product = {
@@ -187,6 +188,7 @@ export default function InventarioView({
                 <option value="Chocolates">Chocolates</option>
                 <option value="Snacks">Snacks</option>
                 <option value="Dulces">Dulces</option>
+                <option value="Accesorios">Accesorios</option>
               </select>
 
               <button
@@ -428,6 +430,7 @@ export default function InventarioView({
                     <option value="Chocolates">🍫 Chocolates</option>
                     <option value="Snacks">🥜 Snacks</option>
                     <option value="Dulces">🍬 Dulces</option>
+                    <option value="Accesorios">🎒 Accesorios</option>
                   </select>
                 </div>
                 <div>

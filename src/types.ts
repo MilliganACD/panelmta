@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type Category = 'Bebidas' | 'Galletas' | 'Chocolates' | 'Snacks' | 'Dulces';
+export type Category = 'Bebidas' | 'Galletas' | 'Chocolates' | 'Snacks' | 'Dulces' | 'Accesorios';
 
 export interface Product {
   id: string;

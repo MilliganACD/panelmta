@@ -266,7 +266,7 @@ export const getStoredData = async () => {
         if (dbMatched) {
           activeUser = dbMatched;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (!activeUser) {
