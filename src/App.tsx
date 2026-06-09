@@ -20,6 +20,7 @@ import {
   deleteUser
 } from './dbStore';
 import { Product, Customer, Venta, CashMovement, CashSession, User, CartItem, PaymentMethod } from './types';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // Modular Subviews
 import DashboardView from './components/DashboardView';
@@ -60,7 +61,7 @@ export default function App() {
     { date: '06/08  11:22', type: 'Venta', productName: 'Agua San Mateo 600ml', delta: -2 }
   ]);
 
-  // Load from database store on start
+  // Load from database store on start and setup Realtime subscription
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -99,6 +100,37 @@ export default function App() {
       }
     };
     loadData();
+
+    // Set up Realtime listener if Supabase is configured
+    if (isSupabaseConfigured && supabase) {
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public'
+          },
+          () => {
+            // Reload all data to keep in sync
+            getStoredData().then(data => {
+              setProducts(data.products);
+              setCustomers(data.customers);
+              setVentas(data.ventas);
+              setMovements(data.movements);
+              setSession(data.session);
+              setUsers(data.users);
+            }).catch(err => {
+              console.error('Error reloading data via Realtime:', err);
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, []);
 
   // Save states helper to update local React states synchronously
