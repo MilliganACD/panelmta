@@ -15,7 +15,9 @@ import {
   saveCustomer,
   openCashSession,
   closeCashSession,
-  saveCashMovement
+  saveCashMovement,
+  saveUser,
+  deleteUser
 } from './dbStore';
 import { Product, Customer, Venta, CashMovement, CashSession, User, CartItem, PaymentMethod } from './types';
 
@@ -28,9 +30,10 @@ import CajaView from './components/CajaView';
 import ClientesView from './components/ClientesView';
 import ReportesView from './components/ReportesView';
 import ConfiguracionView from './components/ConfiguracionView';
+import LoginView from './components/LoginView';
 
 // Nav icons
-import { LayoutDashboard, ShoppingCart, Percent, ClipboardList, Wallet, Users, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Percent, ClipboardList, Wallet, Users, BarChart3, Settings, LogOut } from 'lucide-react';
 
 export default function App() {
   
@@ -69,27 +72,25 @@ export default function App() {
         setVentas(data.ventas);
         setMovements(data.movements);
         setSession(data.session);
+        setUsers(data.users);
         
-        const userList: User[] = [
-          {
-            id: 'user-1',
-            name: 'Admin User',
-            role: 'ADMIN',
-            shift: 'MAÑANA',
-            avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
-          },
-          {
-            id: 'user-2',
-            name: 'Vendedor User',
-            role: 'VENDEDOR',
-            shift: 'TARDE',
-            avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80'
+        // Sync active user session from localStorage cache if present and valid
+        const cachedUser = localStorage.getItem('pos_active_user');
+        if (cachedUser) {
+          try {
+            const parsed = JSON.parse(cachedUser);
+            const matched = data.users.find(u => u.id === parsed.id);
+            if (matched) {
+              setActiveUser(matched);
+            } else {
+              setActiveUser(null);
+            }
+          } catch (e) {
+            setActiveUser(null);
           }
-        ];
-        setUsers(userList);
-        
-        const active = data.activeUser || userList[0];
-        setActiveUser(active);
+        } else {
+          setActiveUser(null);
+        }
       } catch (err: any) {
         setErrorMsg('Error al conectar con la base de datos de Supabase. Verifique las variables de entorno o la conexión de red.');
         console.error(err);
@@ -407,16 +408,34 @@ export default function App() {
     });
   };
 
-  // 10. Switch Users live profile Switch
-  const handleSwitchUser = (userId: string) => {
-    const matched = users.find(u => u.id === userId);
-    if (matched) {
-      setActiveUser(matched);
-      localStorage.setItem('pos_active_user', JSON.stringify(matched));
-    }
+  // 10. User Auth Handlers
+  const handleLogin = (user: User) => {
+    setActiveUser(user);
+    localStorage.setItem('pos_active_user', JSON.stringify(user));
   };
 
-  // 11. Clear state defaults
+  const handleLogout = () => {
+    setActiveUser(null);
+    localStorage.removeItem('pos_active_user');
+    setActiveTab('Dashboard');
+  };
+
+  // 11. Cashier / Seller Management Handlers
+  const handleAddUser = (newUser: User) => {
+    setUsers(prev => [newUser, ...prev]);
+    saveUser(newUser).catch(err => {
+      console.error('Error saving user to database:', err);
+    });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    setUsers(prev => prev.filter(u => u.id !== userId));
+    deleteUser(userId).catch(err => {
+      console.error('Error deleting user from database:', err);
+    });
+  };
+
+  // 12. Clear state defaults
   const handleRestoreDefaults = async () => {
     try {
       setLoading(true);
@@ -427,10 +446,9 @@ export default function App() {
       setVentas(data.ventas);
       setMovements(data.movements);
       setSession(data.session);
-      
-      if (data.activeUser) {
-        setActiveUser(data.activeUser);
-      }
+      setUsers(data.users);
+      setActiveUser(null); // Log out to require logging back in with AdminMTA/Control2026
+      localStorage.removeItem('pos_active_user');
       setActiveTab('Dashboard');
     } catch (err) {
       console.error('Error restoring defaults:', err);
@@ -451,7 +469,7 @@ export default function App() {
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <div>
-            <h3 className="text-sm font-bold text-white tracking-widest uppercase">Sports Academy POS</h3>
+            <h3 className="text-sm font-bold text-white tracking-widest uppercase">ADM-MTA</h3>
             <p className="text-[10px] text-slate-400 mt-1">Conectando con la base de datos en Supabase...</p>
           </div>
         </div>
@@ -481,7 +499,11 @@ export default function App() {
     );
   }
 
-  if (!activeUser || !session) {
+  if (!activeUser) {
+    return <LoginView users={users} onLogin={handleLogin} />;
+  }
+
+  if (!session) {
     return null;
   }
 
@@ -507,11 +529,11 @@ export default function App() {
         {/* Brand Academy Header */}
         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-teal-600 text-white flex items-center justify-center font-black text-sm shadow-md">
-            SP
+            AM
           </div>
           <div>
-            <h1 className="font-extrabold text-white text-sm tracking-tight">Kiosco Academy</h1>
-            <p className="text-[10px] text-slate-500 tracking-wider font-bold">SPORTS POS SYSTEM</p>
+            <h1 className="font-extrabold text-white text-sm tracking-tight">ADM-MTA</h1>
+            <p className="text-[10px] text-slate-500 tracking-wider font-bold">POS SYSTEM</p>
           </div>
         </div>
 
@@ -566,6 +588,15 @@ export default function App() {
               ⚠️ Modo Vendedor: Acceso de catálogo limitado. Precios sólo lectura.
             </div>
           )}
+
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="w-full py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/40 text-rose-400 hover:text-rose-350 font-extrabold text-[10px] uppercase tracking-widest rounded-xl transition duration-155 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Cerrar Sesión
+          </button>
         </div>
 
       </aside>
@@ -577,7 +608,7 @@ export default function App() {
         <header className="h-16 bg-white border-b border-slate-200 px-6 flex justify-between items-center shrink-0 z-30">
           <div>
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-widest">{activeTab}</h2>
-            <p className="text-[10px] text-slate-400 font-medium">Sports Academy POS • Kiosco de Alimentos y Bebidas</p>
+            <p className="text-[10px] text-slate-400 font-medium">ADM-MTA • POS de Turno</p>
           </div>
 
           <div className="flex items-center gap-4">
@@ -657,7 +688,8 @@ export default function App() {
             <ConfiguracionView 
               users={users}
               activeUser={activeUser}
-              onSwitchUser={handleSwitchUser}
+              onAddUser={handleAddUser}
+              onDeleteUser={handleDeleteUser}
               onRestoreDefaults={handleRestoreDefaults}
             />
           )}

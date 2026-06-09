@@ -4,7 +4,7 @@
  */
 
 import { Product, Customer, Venta, CashMovement, CashSession, User, PaymentMethod, CartItem } from './types';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 // Helper to format dates
 const getNowString = () => {
@@ -13,8 +13,90 @@ const getNowString = () => {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 };
 
-// 1. Initial Data Loader from Supabase
+// --- LOCAL STORAGE FALLBACK DATA & SEED ---
+const DEFAULT_PRODUCTS: Product[] = [];
+const DEFAULT_CUSTOMERS: Customer[] = [];
+const DEFAULT_VENTAS: Venta[] = [];
+const DEFAULT_MOVEMENTS: CashMovement[] = [];
+
+const DEFAULT_SESSION: CashSession = {
+  status: 'CERRADA',
+  openedAt: '',
+  initialAmount: 0.00,
+  expectedAmount: 0.00,
+  isOpened: false
+};
+
+const DEFAULT_CASHIER: User = {
+  id: 'user-1',
+  name: 'Admin MTA',
+  role: 'ADMIN',
+  shift: 'MAÑANA',
+  username: 'AdminMTA',
+  password: 'Control2026',
+  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
+};
+
+const DEFAULT_USERS_LIST: User[] = [
+  DEFAULT_CASHIER,
+  {
+    id: 'user-2',
+    name: 'Vendedor MTA',
+    role: 'VENDEDOR',
+    shift: 'TARDE',
+    username: 'vendedor',
+    password: '123',
+    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80'
+  }
+];
+
+// Helper to save to localStorage in demo mode
+const saveLocalData = (data: {
+  products: Product[];
+  customers: Customer[];
+  ventas: Venta[];
+  movements: CashMovement[];
+  session: CashSession;
+  users?: User[];
+}) => {
+  localStorage.setItem('pos_products', JSON.stringify(data.products));
+  localStorage.setItem('pos_customers', JSON.stringify(data.customers));
+  localStorage.setItem('pos_ventas', JSON.stringify(data.ventas));
+  localStorage.setItem('pos_movements', JSON.stringify(data.movements));
+  localStorage.setItem('pos_session', JSON.stringify(data.session));
+  if (data.users) {
+    localStorage.setItem('pos_users', JSON.stringify(data.users));
+  }
+};
+
+const getLocalData = () => {
+  const products = localStorage.getItem('pos_products');
+  const customers = localStorage.getItem('pos_customers');
+  const ventas = localStorage.getItem('pos_ventas');
+  const movements = localStorage.getItem('pos_movements');
+  const session = localStorage.getItem('pos_session');
+  const users = localStorage.getItem('pos_users');
+
+  return {
+    products: products ? JSON.parse(products) : DEFAULT_PRODUCTS,
+    customers: customers ? JSON.parse(customers) : DEFAULT_CUSTOMERS,
+    ventas: ventas ? JSON.parse(ventas) : DEFAULT_VENTAS,
+    movements: movements ? JSON.parse(movements) : DEFAULT_MOVEMENTS,
+    session: session ? JSON.parse(session) : DEFAULT_SESSION,
+    users: users ? JSON.parse(users) : DEFAULT_USERS_LIST,
+    activeUser: DEFAULT_CASHIER
+  };
+};
+
+// --- EXPORTED ROUTINES ---
+
+// 1. Initial Data Loader
 export const getStoredData = async () => {
+  // FALLBACK: Local Storage
+  if (!isSupabaseConfigured || !supabase) {
+    return getLocalData();
+  }
+
   try {
     // A. Fetch Products
     const { data: dbProducts, error: prodErr } = await supabase
@@ -115,7 +197,7 @@ export const getStoredData = async () => {
       }))
     }));
 
-    // D. Fetch Cash Movements (only current session movements, or all)
+    // D. Fetch Cash Movements
     const { data: dbMovements, error: movErr } = await supabase
       .from('cash_movements')
       .select('*')
@@ -160,35 +242,38 @@ export const getStoredData = async () => {
       };
     }
 
-    // F. Fetch Active User (Read localstorage caching to keep cajero local to device)
+    // F. Fetch users list from database
+    const { data: dbUsers, error: usersErr } = await supabase
+      .from('users')
+      .select('*');
+    if (usersErr) throw usersErr;
+
+    const users: User[] = (dbUsers || []).map(u => ({
+      id: u.id,
+      name: u.name,
+      role: u.role as any,
+      shift: u.shift as any,
+      username: u.username,
+      password: u.password,
+      avatarUrl: u.avatar_url || ''
+    }));
+
+    // G. Fetch Active User from local cache
     let activeUser: User | null = null;
     const cachedUser = localStorage.getItem('pos_active_user');
     if (cachedUser) {
       try {
         activeUser = JSON.parse(cachedUser);
+        // Sync attributes with database user list
+        const dbMatched = users.find(u => u.id === activeUser?.id);
+        if (dbMatched) {
+          activeUser = dbMatched;
+        }
       } catch (e) {}
     }
 
-    // Fallback if not cached
     if (!activeUser) {
-      const { data: dbUsers } = await supabase.from('users').select('*').limit(1).maybeSingle();
-      if (dbUsers) {
-        activeUser = {
-          id: dbUsers.id,
-          name: dbUsers.name,
-          role: dbUsers.role as any,
-          shift: dbUsers.shift as any,
-          avatarUrl: dbUsers.avatar_url || ''
-        };
-      } else {
-        activeUser = {
-          id: 'user-1',
-          name: 'Admin User',
-          role: 'ADMIN',
-          shift: 'MAÑANA',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
-        };
-      }
+      activeUser = users.find(u => u.role === 'ADMIN') || users[0] || DEFAULT_CASHIER;
     }
 
     return {
@@ -197,23 +282,38 @@ export const getStoredData = async () => {
       ventas,
       movements,
       session,
+      users,
       activeUser
     };
   } catch (err) {
-    console.error('Error fetching data from Supabase:', err);
-    throw err;
+    console.error('Error fetching data from Supabase, reverting to Local:', err);
+    return getLocalData();
   }
 };
 
 // 2. Granite Sync Mutators
 
-// A. Save Venta with transaction semantics (or batch calls)
+// A. Save Venta
 export const saveVenta = async (
   newVenta: Venta,
   updatedProducts: Product[],
   updatedCustomers: Customer[],
   newMovement?: CashMovement
 ) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      products: updatedProducts,
+      customers: updatedCustomers,
+      ventas: [newVenta, ...current.ventas],
+      movements: newMovement ? [newMovement, ...current.movements] : current.movements,
+      session: current.session,
+      users: current.users
+    });
+    return;
+  }
+
   try {
     // 1. Insert into ventas
     const { error: saleErr } = await supabase.from('ventas').insert({
@@ -274,7 +374,7 @@ export const saveVenta = async (
             product_name: item.productName,
             price: item.price * item.quantity,
             quantity: item.quantity,
-            date: getNowString().slice(5, 10) // e.g. "06-08"
+            date: getNowString().slice(5, 10)
           }));
 
           const { error: debtErr } = await supabase.from('customer_debts').insert(newDebts);
@@ -307,6 +407,20 @@ export const registerCustomerPayment = async (
   updatedCustomers: Customer[],
   newMovement: CashMovement
 ) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      products: current.products,
+      customers: updatedCustomers,
+      ventas: current.ventas,
+      movements: [newMovement, ...current.movements],
+      session: current.session,
+      users: current.users
+    });
+    return;
+  }
+
   try {
     const cust = updatedCustomers.find(c => c.id === customerId);
     if (!cust) return;
@@ -319,7 +433,6 @@ export const registerCustomerPayment = async (
     if (custErr) throw custErr;
 
     // Update customer debts collection on Supabase:
-    // Drop all existing debts and insert the updated ones
     const { error: delErr } = await supabase
       .from('customer_debts')
       .delete()
@@ -356,6 +469,16 @@ export const registerCustomerPayment = async (
 
 // C. Product manipulation
 export const saveProduct = async (product: Product) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      ...current,
+      products: [product, ...current.products]
+    });
+    return;
+  }
+
   const { error } = await supabase.from('products').insert({
     id: product.id,
     name: product.name,
@@ -371,6 +494,17 @@ export const saveProduct = async (product: Product) => {
 };
 
 export const updateProductStock = async (productId: string, newStock: number) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    const updated = current.products.map(p => p.id === productId ? { ...p, stock: newStock } : p);
+    saveLocalData({
+      ...current,
+      products: updated
+    });
+    return;
+  }
+
   const { error } = await supabase
     .from('products')
     .update({ stock: newStock })
@@ -379,6 +513,17 @@ export const updateProductStock = async (productId: string, newStock: number) =>
 };
 
 export const deleteProduct = async (productId: string) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    const updated = current.products.filter(p => p.id !== productId);
+    saveLocalData({
+      ...current,
+      products: updated
+    });
+    return;
+  }
+
   const { error } = await supabase
     .from('products')
     .delete()
@@ -388,6 +533,16 @@ export const deleteProduct = async (productId: string) => {
 
 // D. Customer profile creation
 export const saveCustomer = async (customer: Customer) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      ...current,
+      customers: [customer, ...current.customers]
+    });
+    return;
+  }
+
   const { error } = await supabase.from('customers').insert({
     id: customer.id,
     name: customer.name,
@@ -401,17 +556,34 @@ export const saveCustomer = async (customer: Customer) => {
 
 // E. Sessions and cash movements
 export const openCashSession = async (amount: number, newMovement: CashMovement) => {
+  const todayStr = getNowString();
+  const updatedSession: CashSession = {
+    isOpened: true,
+    status: 'ABIERTA',
+    initialAmount: amount,
+    expectedAmount: amount,
+    openedAt: todayStr
+  };
+
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      ...current,
+      session: updatedSession,
+      movements: [newMovement, ...current.movements]
+    });
+    return;
+  }
+
   try {
-    const todayStr = getNowString();
-    
-    // Upsert the 'active' session
     const { error: sessErr } = await supabase.from('cash_sessions').upsert({
       id: 'active',
       status: 'ABIERTA',
       opened_at: todayStr,
       closed_at: null,
       initial_amount: amount,
-      expected_amount: amount, // starts with initial amount
+      expected_amount: amount,
       is_opened: true,
       notes: 'Turno abierto'
     });
@@ -434,13 +606,34 @@ export const openCashSession = async (amount: number, newMovement: CashMovement)
 };
 
 export const closeCashSession = async (countedAmount: number, notes: string) => {
+  const updatedSession: CashSession = {
+    isOpened: false,
+    status: 'CERRADA',
+    initialAmount: 0,
+    expectedAmount: 0,
+    openedAt: '',
+    closedAt: getNowString(),
+    notes,
+    countedAmount
+  };
+
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      ...current,
+      session: updatedSession,
+      movements: [] // clear active shift movements
+    });
+    return;
+  }
+
   try {
-    const todayStr = getNowString();
     const { error: sessErr } = await supabase
       .from('cash_sessions')
       .update({
         status: 'CERRADA',
-        closed_at: todayStr,
+        closed_at: updatedSession.closedAt,
         counted_amount: countedAmount,
         is_opened: false,
         notes: notes
@@ -448,8 +641,7 @@ export const closeCashSession = async (countedAmount: number, notes: string) => 
       .eq('id', 'active');
     if (sessErr) throw sessErr;
 
-    // In a production POS, we might clear or archive current shift movements.
-    // For this app, we will clear cash_movements so the next session starts fresh.
+    // Clear shift movements for next session
     const { error: delErr } = await supabase.from('cash_movements').delete().neq('id', '');
     if (delErr) throw delErr;
   } catch (err) {
@@ -459,6 +651,16 @@ export const closeCashSession = async (countedAmount: number, notes: string) => 
 };
 
 export const saveCashMovement = async (type: 'INGRESO' | 'EGRESO', concept: string, category: string, amount: number, newMovement: CashMovement) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    saveLocalData({
+      ...current,
+      movements: [newMovement, ...current.movements]
+    });
+    return;
+  }
+
   const { error } = await supabase.from('cash_movements').insert({
     id: newMovement.id,
     timestamp: newMovement.timestamp,
@@ -470,10 +672,67 @@ export const saveCashMovement = async (type: 'INGRESO' | 'EGRESO', concept: stri
   if (error) throw error;
 };
 
-// 3. System Defaults restoration (Demo database wipe & re-seeding)
+// F. Operator User manipulation (Fase 5 Additions)
+export const saveUser = async (user: User) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    const existing = current.users.find(u => u.id === user.id);
+    let updated: User[];
+    if (existing) {
+      updated = current.users.map(u => u.id === user.id ? user : u);
+    } else {
+      updated = [user, ...current.users];
+    }
+    saveLocalData({
+      ...current,
+      users: updated
+    });
+    return;
+  }
+
+  const { error } = await supabase.from('users').upsert({
+    id: user.id,
+    name: user.name,
+    role: user.role,
+    shift: user.shift,
+    username: user.username,
+    password: user.password,
+    avatar_url: user.avatarUrl
+  });
+  if (error) throw error;
+};
+
+export const deleteUser = async (userId: string) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    const updated = current.users.filter(u => u.id !== userId);
+    saveLocalData({
+      ...current,
+      users: updated
+    });
+    return;
+  }
+
+  const { error } = await supabase.from('users').delete().eq('id', userId);
+  if (error) throw error;
+};
+
+// 3. System Defaults restoration
 export const restoreDefaults = async () => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    localStorage.removeItem('pos_products');
+    localStorage.removeItem('pos_customers');
+    localStorage.removeItem('pos_ventas');
+    localStorage.removeItem('pos_movements');
+    localStorage.removeItem('pos_session');
+    localStorage.removeItem('pos_users');
+    return getLocalData();
+  }
+
   try {
-    // Run delete cascades via deleting main records
     await supabase.from('venta_items').delete().neq('venta_id', '');
     await supabase.from('ventas').delete().neq('id', '');
     await supabase.from('customer_debts').delete().neq('id', '');
@@ -483,92 +742,21 @@ export const restoreDefaults = async () => {
     await supabase.from('cash_sessions').delete().eq('id', 'active');
     await supabase.from('users').delete().neq('id', '');
 
-    // Re-seed Users
     const seedUsers = [
-      { id: 'user-1', name: 'Admin User', role: 'ADMIN', shift: 'MAÑANA', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80' },
-      { id: 'user-2', name: 'Vendedor User', role: 'VENDEDOR', shift: 'TARDE', avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80' }
+      { id: 'user-1', name: 'Admin MTA', role: 'ADMIN', shift: 'MAÑANA', username: 'AdminMTA', password: 'Control2026', avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80' }
     ];
     await supabase.from('users').insert(seedUsers);
 
-    // Re-seed Products
-    const seedProducts = [
-      { id: 'prod-1', name: 'Gatorade Cool Blue 500ml', category: 'Bebidas', price: 4.50, cost: 2.20, stock: 24, low_stock_threshold: 5, sku: 'GAT-CB500', image_url: 'https://images.unsplash.com/photo-1571175351749-e8d06f275d85?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-2', name: 'Quest Protein Bar Choco', category: 'Snacks', price: 12.00, cost: 6.85, stock: 12, low_stock_threshold: 3, sku: 'QS-PB-CHO', image_url: 'https://images.unsplash.com/photo-1622484211148-716598e04141?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-3', name: 'Agua San Mateo 600ml', category: 'Bebidas', price: 2.50, cost: 1.10, stock: 5, low_stock_threshold: 10, sku: 'ASM-600', image_url: 'https://images.unsplash.com/photo-1608885898957-a599fb16ec18?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-4', name: 'Galletas Integrales 6pk', category: 'Galletas', price: 3.80, cost: 1.90, stock: 40, low_stock_threshold: 8, sku: 'GAL-INT-6', image_url: 'https://images.unsplash.com/photo-1558961309-dbdf0003ed31?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-5', name: 'Coca Cola 500ml', category: 'Bebidas', price: 3.50, cost: 1.50, stock: 50, low_stock_threshold: 10, sku: 'CC-500ML', image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-6', name: 'Oreo Original', category: 'Galletas', price: 2.50, cost: 1.20, stock: 15, low_stock_threshold: 5, sku: 'OREO-1R', image_url: 'https://images.unsplash.com/photo-1558961309-dbdf000efec1?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-7', name: 'Chizitos Clasicos', category: 'Snacks', price: 1.50, cost: 0.70, stock: 4, low_stock_threshold: 5, sku: 'CHZ-001', image_url: 'https://images.unsplash.com/photo-1599490659213-e2b9527ec087?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-8', name: 'Sublime Chocolate', category: 'Chocolates', price: 3.00, cost: 1.30, stock: 35, low_stock_threshold: 8, sku: 'SUB-CHO', image_url: 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-9', name: 'Agua Mineral H2O 500ml', category: 'Bebidas', price: 2.00, cost: 0.85, stock: 142, low_stock_threshold: 15, sku: 'H2O-102', image_url: 'https://images.unsplash.com/photo-1548839130-ad1c2e08c4f8?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-10', name: 'Isotónica Blue 600ml', category: 'Bebidas', price: 3.25, cost: 1.50, stock: 64, low_stock_threshold: 10, sku: 'ISO-882', image_url: 'https://images.unsplash.com/photo-1548839130-ad1c2e08c4f8?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-11', name: 'Gomitas Loops Dulces', category: 'Dulces', price: 2.00, cost: 0.90, stock: 55, low_stock_threshold: 10, sku: 'GOMI-L1', image_url: 'https://images.unsplash.com/photo-1581798459219-318e76aeef7b?w=500&auto=format&fit=crop&q=60' }
-    ];
-    await supabase.from('products').insert(seedProducts);
-
-    // Re-seed Customers
-    const seedCustomers = [
-      { id: 'cust-1', name: 'Juan Pérez', phone: '987654321', credit_limit: 50.00, current_debt: 25.00, total_purchases: 125 },
-      { id: 'cust-2', name: 'Carlos Ramos', phone: '912345678', credit_limit: 50.00, current_debt: 12.00, total_purchases: 62 },
-      { id: 'cust-3', name: 'María López', phone: '951357246', credit_limit: 50.00, current_debt: 8.50, total_purchases: 45 },
-      { id: 'cust-4', name: 'Roberto Gómez', phone: '999888777', credit_limit: 100.00, current_debt: 0.00, total_purchases: 15 },
-      { id: 'cust-5', name: 'Esteban Quispe', phone: '933555222', credit_limit: 40.00, current_debt: 0.00, total_purchases: 32 }
-    ];
-    await supabase.from('customers').insert(seedCustomers);
-
-    // Re-seed customer debts
-    const seedDebts = [
-      { id: 'deb-1', customer_id: 'cust-1', date: '06-04', product_name: 'Gatorade Blue Bolt', price: 8.50, quantity: 1 },
-      { id: 'deb-2', customer_id: 'cust-1', date: '06-05', product_name: 'Coca Cola 500ml', price: 4.50, quantity: 1 },
-      { id: 'deb-3', customer_id: 'cust-1', date: '06-06', product_name: 'Barra Proteica Quest', price: 12.00, quantity: 1 },
-      { id: 'deb-4', customer_id: 'cust-2', date: '06-05', product_name: 'Agua San Luis 1L', price: 3.50, quantity: 1 },
-      { id: 'deb-5', customer_id: 'cust-2', date: '06-05', product_name: 'Galletones Avena', price: 8.50, quantity: 1 },
-      { id: 'deb-6', customer_id: 'cust-3', date: '06-06', product_name: 'Gatorade Tropical', price: 8.50, quantity: 1 }
-    ];
-    await supabase.from('customer_debts').insert(seedDebts);
-
-    // Re-seed Ventas
-    const seedVentas = [
-      { id: 'TRX-8921', timestamp: '2026-06-06 14:22', customer_id: 'cust-1', customer_name: 'Juan Pérez', total: 26.50, payment_method: 'EFECTIVO', paid_amount: 26.50, pending_amount: 0, cashier_name: 'Admin User', status: 'COMPLETADA' },
-      { id: 'TRX-8920', timestamp: '2026-06-06 14:15', customer_id: 'general', customer_name: 'Venta General', total: 5.00, payment_method: 'YAPE', paid_amount: 5.00, pending_amount: 0, cashier_name: 'Admin User', status: 'COMPLETADA' },
-      { id: 'TRX-8919', timestamp: '2026-06-06 14:02', customer_id: 'cust-3', customer_name: 'María López', total: 18.50, payment_method: 'MIXTO', paid_amount: 10.00, pending_amount: 8.50, cashier_name: 'Admin User', status: 'COMPLETADA' },
-      { id: 'TRX-8910', timestamp: '2026-06-05 10:15', customer_id: 'cust-2', customer_name: 'Carlos Ramos', total: 24.00, payment_method: 'CREDITO', paid_amount: 0, pending_amount: 24.00, cashier_name: 'Admin User', status: 'COMPLETADA' }
-    ];
-    await supabase.from('ventas').insert(seedVentas);
-
-    // Re-seed Venta Items
-    const seedVentaItems = [
-      { venta_id: 'TRX-8921', product_id: 'prod-2', product_name: 'Quest Protein Bar Choco', price: 12.00, quantity: 2 },
-      { venta_id: 'TRX-8921', product_id: 'prod-3', product_name: 'Agua San Mateo 600ml', price: 2.50, quantity: 1 },
-      { venta_id: 'TRX-8920', product_id: 'prod-3', product_name: 'Agua San Mateo 600ml', price: 2.50, quantity: 2 },
-      { venta_id: 'TRX-8919', product_id: 'prod-1', product_name: 'Gatorade Cool Blue 500ml', price: 4.50, quantity: 2 },
-      { venta_id: 'TRX-8919', product_id: 'prod-5', product_name: 'Coca Cola 500ml', price: 3.50, quantity: 2 },
-      { venta_id: 'TRX-8919', product_id: 'prod-6', product_name: 'Oreo Original', price: 2.50, quantity: 1 },
-      { venta_id: 'TRX-8910', product_id: 'prod-2', product_name: 'Quest Protein Bar Choco', price: 12.00, quantity: 2 }
-    ];
-    await supabase.from('venta_items').insert(seedVentaItems);
-
-    // Re-seed Cash Movements
-    const seedMovements = [
-      { id: 'mov-1', timestamp: '2026-06-06 08:15', type: 'EGRESO', concept: 'Pago Proveedor Bebidas', category: 'Proveedor', amount: 150.00 },
-      { id: 'mov-2', timestamp: '2026-06-06 09:40', type: 'INGRESO', concept: 'Venta Kit Entrenamiento', category: 'Oficina / Merch', amount: 450.00 },
-      { id: 'mov-3', timestamp: '2026-06-06 11:10', type: 'EGRESO', concept: 'Reparación Cafetera', category: 'Mantenimiento', amount: 85.00 },
-      { id: 'mov-4', timestamp: '2026-06-06 13:05', type: 'INGRESO', concept: 'Venta Suplementos', category: 'Suplementos Extra', amount: 120.00 }
-    ];
-    await supabase.from('cash_movements').insert(seedMovements);
-
-    // Re-seed Cash Sessions
-    const seedSession = {
+    await supabase.from('cash_sessions').insert({
       id: 'active',
-      status: 'ABIERTA',
-      opened_at: '2026-06-06 08:00',
+      status: 'CERRADA',
+      opened_at: '',
       closed_at: null,
-      initial_amount: 250.00,
-      expected_amount: 2827.50,
-      is_opened: true,
-      notes: 'Turno de mañana activo.'
-    };
-    await supabase.from('cash_sessions').insert(seedSession);
+      initial_amount: 0.00,
+      expected_amount: 0.00,
+      is_opened: false,
+      notes: 'Sesión inicial cerrada.'
+    });
 
     return getStoredData();
   } catch (err) {
