@@ -26,6 +26,7 @@ export default function ConfiguracionView({
   // Create operator form states
   const [name, setName] = useState<string>('');
   const [username, setUsername] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [role, setRole] = useState<UserRole>('VENDEDOR');
   const [shift, setShift] = useState<'MAÑANA' | 'TARDE'>('TARDE');
@@ -42,7 +43,7 @@ export default function ConfiguracionView({
     if (activeUser.role !== 'ADMIN') return;
 
     if (!name.trim() || !username.trim() || !password.trim()) {
-      alert('⚠️ Por favor llene todos los campos del formulario.');
+      alert('⚠️ Por favor llene todos los campos obligatorios del formulario.');
       return;
     }
 
@@ -51,6 +52,15 @@ export default function ConfiguracionView({
     if (exists) {
       alert('❌ El nombre de usuario ya está registrado por otro operador.');
       return;
+    }
+
+    // Check if email is already taken
+    if (email.trim() !== '') {
+      const emailExists = users.some(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+      if (emailExists) {
+        alert('❌ El correo electrónico ya está registrado por otro operador.');
+        return;
+      }
     }
 
     const defaultAvatars: Record<UserRole, string> = {
@@ -62,6 +72,7 @@ export default function ConfiguracionView({
       id: `user-${Date.now()}`,
       name: name.trim(),
       username: username.trim(),
+      email: email.trim() || undefined,
       password: password,
       role,
       shift,
@@ -73,6 +84,7 @@ export default function ConfiguracionView({
     // Clear form
     setName('');
     setUsername('');
+    setEmail('');
     setPassword('');
     alert(`🎉 Operador "${newOperator.name}" registrado con éxito.`);
   };
@@ -132,6 +144,17 @@ export default function ConfiguracionView({
                   placeholder="E.g. mariag"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  className="w-full text-xs p-2.5 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-slate-500">Correo Electrónico (Opcional)</label>
+                <input 
+                  type="email" 
+                  placeholder="E.g. maria@gmail.com (Opcional)"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full text-xs p-2.5 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
                 />
               </div>
@@ -217,7 +240,7 @@ export default function ConfiguracionView({
                             )}
                           </h4>
                           <p className="text-slate-400 text-[10px] mt-0.5">
-                            Usuario: <span className="font-semibold text-slate-600">{u.username}</span> • Clave: <span className="font-semibold text-slate-600 font-mono">{u.password}</span> • Turno: {u.shift}
+                            Usuario: <span className="font-semibold text-slate-600">{u.username}</span>{u.email && <span> • Correo: <span className="font-semibold text-slate-600">{u.email}</span></span>} • Clave: <span className="font-semibold text-slate-600 font-mono">{u.password}</span> • Turno: {u.shift}
                           </p>
                         </div>
                       </div>

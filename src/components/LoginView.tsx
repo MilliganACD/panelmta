@@ -29,7 +29,7 @@ export default function LoginView({ users, onLogin }: LoginViewProps) {
 
     // Find the user by username & password case sensitive/insensitive depending on preferences
     const matched = users.find(
-      u => u.username?.toLowerCase() === username.trim().toLowerCase() && u.password === password
+      u => (u.username?.toLowerCase() === username.trim().toLowerCase() || u.email?.toLowerCase() === username.trim().toLowerCase()) && u.password === password
     );
 
     if (matched) {

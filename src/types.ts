@@ -89,6 +89,7 @@ export interface User {
   role: UserRole;
   shift: 'MAÑANA' | 'TARDE';
   username?: string;
+  email?: string;
   password?: string;
   avatarUrl: string;
 }

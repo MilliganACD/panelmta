@@ -97,6 +97,7 @@ CREATE TABLE users (
     role TEXT NOT NULL, -- 'ADMIN' | 'VENDEDOR'
     shift TEXT NOT NULL, -- 'MAÑANA' | 'TARDE'
     username TEXT NOT NULL UNIQUE,
+    email TEXT UNIQUE,
     password TEXT NOT NULL,
     avatar_url TEXT
 );
@@ -109,6 +110,6 @@ INSERT INTO cash_sessions (id, status, opened_at, closed_at, initial_amount, exp
 ('active', 'CERRADA', '', NULL, 0.00, 0.00, NULL, FALSE, 'Sesión inicial cerrada.');
 
 -- Insert users
-INSERT INTO users (id, name, role, shift, username, password, avatar_url) VALUES
-('user-1', 'Admin MTA', 'ADMIN', 'MAÑANA', 'AdminMTA', 'Control2026', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80');
+INSERT INTO users (id, name, role, shift, username, email, password, avatar_url) VALUES
+('user-1', 'Admin MTA', 'ADMIN', 'MAÑANA', 'AdminMTA', 'miligantennisacademy@gmail.com', 'Control2026', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80');
 
