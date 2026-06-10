@@ -5,12 +5,13 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, Category, User } from '../types';
-import { Search, Plus, FileSpreadsheet, Trash2, ShieldAlert, X, Check } from 'lucide-react';
+import { Search, Plus, FileSpreadsheet, Trash2, ShieldAlert, X, Check, Pencil } from 'lucide-react';
 
 interface InventarioViewProps {
   products: Product[];
   activeUser: User;
   onAddProduct: (newProduct: Product) => void;
+  onUpdateProduct: (product: Product) => void;
   onUpdateStock: (productId: string, newStock: number) => void;
   onDeleteProduct: (productId: string) => void;
   inventoryLogs?: { date: string; type: string; productName: string; delta: number }[];
@@ -20,6 +21,7 @@ export default function InventarioView({
   products,
   activeUser,
   onAddProduct,
+  onUpdateProduct,
   onUpdateStock,
   onDeleteProduct,
   inventoryLogs = []
@@ -31,6 +33,7 @@ export default function InventarioView({
   
   // Create / Edit modal states
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showEditStockId, setShowEditStockId] = useState<string | null>(null);
   const [editingStockVal, setEditingStockVal] = useState<string>('');
 
@@ -82,19 +85,39 @@ export default function InventarioView({
       'Accesorios': 'https://images.unsplash.com/photo-1606902960316-3a4793e56f70?w=500&auto=format&fit=crop&q=60'
     };
 
-    const newProd: Product = {
-      id: `prod-${Date.now()}`,
-      name,
-      sku,
-      category,
-      price: parseFloat(price) || 0,
-      cost: parseFloat(cost) || 0,
-      stock: parseInt(stock) || 0,
-      lowStockThreshold: parseInt(threshold) || 5,
-      imageUrl: imgUrl || defaultImages[category]
-    };
+    if (editingProduct) {
+      const updatedProd: Product = {
+        id: editingProduct.id,
+        name,
+        sku,
+        category,
+        price: parseFloat(price) || 0,
+        cost: parseFloat(cost) || 0,
+        stock: parseInt(stock) || 0,
+        lowStockThreshold: parseInt(threshold) || 5,
+        imageUrl: imgUrl || defaultImages[category]
+      };
 
-    onAddProduct(newProd);
+      onUpdateProduct(updatedProd);
+      setEditingProduct(null);
+      alert('🎉 Producto actualizado exitosamente.');
+    } else {
+      const newProd: Product = {
+        id: `prod-${Date.now()}`,
+        name,
+        sku,
+        category,
+        price: parseFloat(price) || 0,
+        cost: parseFloat(cost) || 0,
+        stock: parseInt(stock) || 0,
+        lowStockThreshold: parseInt(threshold) || 5,
+        imageUrl: imgUrl || defaultImages[category]
+      };
+
+      onAddProduct(newProd);
+      alert('🎉 Producto agregado al catálogo exitosamente.');
+    }
+
     setShowAddModal(false);
     
     // Clear form
@@ -104,7 +127,6 @@ export default function InventarioView({
     setCost('');
     setStock('');
     setImgUrl('');
-    alert('🎉 Producto agregado al catálogo exitosamente.');
   };
 
   const handleQuickStockUpdate = (productId: string) => {
@@ -122,6 +144,19 @@ export default function InventarioView({
     }
     onUpdateStock(productId, val);
     setShowEditStockId(null);
+  };
+
+  const handleStartEditProduct = (product: Product) => {
+    setName(product.name);
+    setSku(product.sku);
+    setCategory(product.category);
+    setPrice(product.price.toString());
+    setCost(product.cost.toString());
+    setStock(product.stock.toString());
+    setThreshold(product.lowStockThreshold.toString());
+    setImgUrl(product.imageUrl);
+    setEditingProduct(product);
+    setShowAddModal(true);
   };
 
   const handleExportExcel = () => {
@@ -216,7 +251,18 @@ export default function InventarioView({
             </button>
             {activeUser.role === 'ADMIN' && (
               <button 
-                onClick={() => setShowAddModal(true)}
+                onClick={() => {
+                  setName('');
+                  setSku('');
+                  setCategory('Bebidas');
+                  setPrice('');
+                  setCost('');
+                  setStock('');
+                  setThreshold('5');
+                  setImgUrl('');
+                  setEditingProduct(null);
+                  setShowAddModal(true);
+                }}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-sm"
               >
                 <Plus className="w-4 h-4" />
@@ -307,6 +353,13 @@ export default function InventarioView({
                       {activeUser.role === 'ADMIN' && (
                         <div className="flex justify-end gap-1.5">
                           <button 
+                            onClick={() => handleStartEditProduct(p)}
+                            className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                            title="Editar producto"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button 
                             onClick={() => {
                               onDeleteProduct(p.id);
                               alert('🗑️ Producto eliminado del catálogo.');
@@ -387,9 +440,12 @@ export default function InventarioView({
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg border border-slate-200 shadow-2xl overflow-hidden animate-[fadeInUp_0.2s_forwards]">
             <div className="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800">Agregar Producto al Catálogo</h3>
+              <h3 className="font-bold text-slate-800">{editingProduct ? 'Editar Producto' : 'Agregar Producto al Catálogo'}</h3>
               <button 
-                onClick={() => setShowAddModal(false)}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setEditingProduct(null);
+                }}
                 className="p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -495,7 +551,10 @@ export default function InventarioView({
               <div className="flex gap-2 pt-4 border-t border-slate-100 justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setEditingProduct(null);
+                  }}
                   className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-600 rounded text-xs font-bold shrink-0 cursor-pointer transition-colors"
                 >
                   Cancelar
@@ -504,7 +563,7 @@ export default function InventarioView({
                   type="submit"
                   className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded text-xs font-bold shrink-0 cursor-pointer transition-colors flex items-center gap-1.5 shadow-sm"
                 >
-                  Confirmar e Ingresar
+                  {editingProduct ? 'Guardar Cambios' : 'Confirmar e Ingresar'}
                   <Check className="w-4 h-4 font-bold" />
                 </button>
               </div>

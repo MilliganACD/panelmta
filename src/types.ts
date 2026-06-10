@@ -52,6 +52,8 @@ export interface Venta {
     productName: string;
     price: number;
     quantity: number;
+    cost?: number;
+    category?: Category;
   }[];
   total: number;
   paymentMethod: PaymentMethod;

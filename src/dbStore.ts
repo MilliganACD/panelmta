@@ -143,7 +143,9 @@ export const getStoredData = async () => {
             product_id,
             product_name,
             price,
-            quantity
+            quantity,
+            cost,
+            category
           )
         `).order('timestamp', { ascending: false }),
         supabase.from('cash_movements').select('*').order('timestamp', { ascending: false }),
@@ -210,7 +212,9 @@ export const getStoredData = async () => {
         productId: item.product_id,
         productName: item.product_name,
         price: Number(item.price),
-        quantity: item.quantity
+        quantity: item.quantity,
+        cost: item.cost !== null && item.cost !== undefined ? Number(item.cost) : undefined,
+        category: item.category || undefined
       }))
     }));
 
@@ -333,7 +337,9 @@ export const saveVenta = async (
       product_id: item.productId,
       product_name: item.productName,
       price: item.price,
-      quantity: item.quantity
+      quantity: item.quantity,
+      cost: item.cost,
+      category: item.category
     }));
     const { error: itemsErr } = await supabase.from('venta_items').insert(dbItems);
     if (itemsErr) throw itemsErr;
@@ -487,6 +493,34 @@ export const saveProduct = async (product: Product) => {
     sku: product.sku,
     image_url: product.imageUrl
   });
+  if (error) throw error;
+};
+
+export const updateProduct = async (product: Product) => {
+  // FALLBACK
+  if (!isSupabaseConfigured || !supabase) {
+    const current = getLocalData();
+    const updated = current.products.map(p => p.id === product.id ? product : p);
+    saveLocalData({
+      ...current,
+      products: updated
+    });
+    return;
+  }
+
+  const { error } = await supabase
+    .from('products')
+    .update({
+      name: product.name,
+      category: product.category,
+      price: product.price,
+      cost: product.cost,
+      stock: product.stock,
+      low_stock_threshold: product.lowStockThreshold,
+      sku: product.sku,
+      image_url: product.imageUrl
+    })
+    .eq('id', product.id);
   if (error) throw error;
 };
 

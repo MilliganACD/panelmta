@@ -10,6 +10,7 @@ import {
   saveVenta,
   registerCustomerPayment,
   saveProduct,
+  updateProduct,
   updateProductStock,
   deleteProduct,
   saveCustomer,
@@ -190,7 +191,9 @@ export default function App() {
         productId: cartItem.product.id,
         productName: cartItem.product.name,
         price: cartItem.product.price,
-        quantity: cartItem.quantity
+        quantity: cartItem.quantity,
+        cost: cartItem.product.cost,
+        category: cartItem.product.category
       })),
       total: ventaData.total,
       paymentMethod: ventaData.paymentMethod,
@@ -328,6 +331,17 @@ export default function App() {
     // Sync to Supabase in background
     saveProduct(newProduct).catch(err => {
       console.error('Error saving new product to Supabase:', err);
+    });
+  };
+
+  const handleUpdateProduct = (updatedProduct: Product) => {
+    if (!session) return;
+    const updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+    persistState(updated, customers, ventas, movements, session);
+
+    // Sync to Supabase in background
+    updateProduct(updatedProduct).catch(err => {
+      console.error('Error updating product in Supabase:', err);
     });
   };
 
@@ -703,6 +717,7 @@ export default function App() {
               products={products}
               activeUser={activeUser}
               onAddProduct={handleAddProduct}
+              onUpdateProduct={handleUpdateProduct}
               onUpdateStock={handleUpdateStock}
               onDeleteProduct={handleDeleteProduct}
               inventoryLogs={inventoryLogs}

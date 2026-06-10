@@ -72,8 +72,8 @@ export default function ContabilidadView({
       // Calculate cost (COGS) for each item in the sale
       v.items.forEach(item => {
         const prod = products.find(p => p.id === item.productId);
-        const itemCost = prod ? prod.cost * item.quantity : 0;
-        const itemCat = prod ? prod.category : 'Otros';
+        const itemCost = (item.cost !== undefined && item.cost !== null ? item.cost : (prod ? prod.cost : 0)) * item.quantity;
+        const itemCat = item.category || (prod ? prod.category : 'Otros');
 
         data[month].salesCost += itemCost;
 

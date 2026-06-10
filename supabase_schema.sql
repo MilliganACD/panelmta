@@ -64,7 +64,9 @@ CREATE TABLE venta_items (
     product_id TEXT NOT NULL,
     product_name TEXT NOT NULL,
     price NUMERIC(10, 2) NOT NULL,
-    quantity INTEGER NOT NULL
+    quantity INTEGER NOT NULL,
+    cost NUMERIC(10, 2),
+    category TEXT
 );
 
 -- Table: cash_movements
