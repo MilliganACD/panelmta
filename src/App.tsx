@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   getStoredData, 
   restoreDefaults,
@@ -19,7 +19,8 @@ import {
   saveCashMovement,
   saveUser,
   deleteUser,
-  getLocalData
+  getLocalData,
+  saveLocalData
 } from './dbStore';
 import { Product, Customer, Venta, CashMovement, CashSession, User, CartItem, PaymentMethod } from './types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
@@ -76,66 +77,76 @@ export default function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [activeUser, setActiveUser] = useState<User | null>(null);
 
+  // Offline status
+  const [isOffline, setIsOffline] = useState<boolean>(false);
+
   // Manual log of inventory adjustments
   const [inventoryLogs, setInventoryLogs] = useState<{ date: string; type: string; productName: string; delta: number }[]>([]);
 
-  // Load from database store on start and setup Realtime subscription
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setErrorMsg(null);
-        const data = await getStoredData();
-        setProducts(data.products);
-        setCustomers(data.customers);
-        setVentas(data.ventas);
-        setMovements(data.movements);
-        setSession(data.session);
-        setUsers(data.users);
-        
-        // Sync active user session from localStorage cache if present and valid
-        const cachedUser = localStorage.getItem('pos_active_user');
-        if (cachedUser) {
-          try {
-            const parsed = JSON.parse(cachedUser);
-            const matched = data.users.find(u => u.id === parsed.id);
-            if (matched) {
-              setActiveUser(matched);
-            } else {
-              setActiveUser(null);
-            }
-          } catch (e) {
+  // Load from database store
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setErrorMsg(null);
+      const data = await getStoredData();
+      setProducts(data.products);
+      setCustomers(data.customers);
+      setVentas(data.ventas);
+      setMovements(data.movements);
+      setSession(data.session);
+      setUsers(data.users);
+      setIsOffline(false);
+      
+      // Sync active user session from localStorage cache if present and valid
+      const cachedUser = localStorage.getItem('pos_active_user');
+      if (cachedUser) {
+        try {
+          const parsed = JSON.parse(cachedUser);
+          const matched = data.users.find(u => u.id === parsed.id);
+          if (matched) {
+            setActiveUser(matched);
+          } else {
             setActiveUser(null);
           }
-        } else {
+        } catch (e) {
           setActiveUser(null);
         }
-      } catch (err: any) {
-        console.warn('Supabase connection failed, falling back to local data:', err);
-        console.error(err);
-        const localData = getLocalData();
-        setProducts(localData.products);
-        setCustomers(localData.customers);
-        setVentas(localData.ventas);
-        setMovements(localData.movements);
-        setSession(localData.session);
-        setUsers(localData.users);
-        
-        // Sync active user session from localStorage cache if present and valid
-        const cachedUser = localStorage.getItem('pos_active_user');
-        if (cachedUser) {
-          try {
-            const parsed = JSON.parse(cachedUser);
-            const matched = localData.users.find(u => u.id === parsed.id);
-            if (matched) {
-              setActiveUser(matched);
-            }
-          } catch (e) {}
-        }
-      } finally {
-        setLoading(false);
+      } else {
+        setActiveUser(null);
       }
-    };
+    } catch (err: any) {
+      console.warn('Supabase connection failed, falling back to local data:', err);
+      console.error(err);
+      // Fallback: load local data
+      const localData = getLocalData();
+      setProducts(localData.products);
+      setCustomers(localData.customers);
+      setVentas(localData.ventas);
+      setMovements(localData.movements);
+      setSession(localData.session);
+      setUsers(localData.users);
+      
+      // Sync active user session from localStorage cache if present and valid
+      const cachedUser = localStorage.getItem('pos_active_user');
+      if (cachedUser) {
+        try {
+          const parsed = JSON.parse(cachedUser);
+          const matched = localData.users.find(u => u.id === parsed.id);
+          if (matched) {
+            setActiveUser(matched);
+          }
+        } catch (e) {}
+      }
+      
+      setIsOffline(true);
+      setErrorMsg('Error al conectar con la base de datos de Supabase.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load on start and setup Realtime subscription
+  useEffect(() => {
     loadData();
 
     // Set up Realtime listener if Supabase is configured
@@ -157,6 +168,8 @@ export default function App() {
               setMovements(data.movements);
               setSession(data.session);
               setUsers(data.users);
+              setIsOffline(false);
+              setErrorMsg(null);
             }).catch(err => {
               console.error('Error reloading data via Realtime:', err);
             });
@@ -168,9 +181,9 @@ export default function App() {
         supabase.removeChannel(channel);
       };
     }
-  }, []);
+  }, [loadData]);
 
-  // Save states helper to update local React states synchronously
+  // Save states helper to update local React states and localStorage cache synchronously
   const persistState = (
     newProducts: Product[],
     newCustomers: Customer[],
@@ -183,6 +196,16 @@ export default function App() {
     setVentas(newVentas);
     setMovements(newMovements);
     setSession(newSession);
+
+    // Offline-ready cache synchronization
+    saveLocalData({
+      products: newProducts,
+      customers: newCustomers,
+      ventas: newVentas,
+      movements: newMovements,
+      session: newSession,
+      users: users
+    });
   };
 
   // State Mutator Actions
@@ -584,7 +607,38 @@ export default function App() {
     );
   }
 
-  // Error message is now non-blocking - app continues with local data
+  if (errorMsg) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-900 font-sans p-4">
+        <div className="max-w-md p-6 bg-slate-950 border border-rose-500/30 rounded-2xl text-center space-y-4 shadow-2xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-xl">⚠️</div>
+          <div>
+            <h3 className="text-sm font-black text-white tracking-wider uppercase">Error de Conexión a Base de Datos</h3>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              No se pudo conectar a tu base de datos de Supabase. Verifique su conexión a internet y asegúrese de que el servidor esté activo.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button 
+              onClick={loadData}
+              className="w-full py-2.5 bg-teal-600 hover:bg-teal-755 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
+            >
+              Reintentar Conexión
+            </button>
+            <button 
+              onClick={() => {
+                setErrorMsg(null);
+                setIsOffline(true);
+              }}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-350 text-xs font-bold rounded-lg cursor-pointer transition-colors"
+            >
+              Continuar Offline (Copia Local)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!activeUser) {
     return <LoginView users={users} onLogin={handleLogin} />;
@@ -705,6 +759,26 @@ export default function App() {
             </span>
           </div>
         </header>
+
+        {isOffline && (
+          <div className="bg-amber-500 text-slate-900 px-6 py-2 flex items-center justify-between gap-4 border-b border-amber-600/30 shrink-0 z-20 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-900 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-900"></span>
+              </span>
+              <p className="text-xs font-bold">
+                ⚠️ Modo sin conexión activo. Usando copia local de respaldo. Los cambios nuevos no se guardarán en la nube.
+              </p>
+            </div>
+            <button 
+              onClick={loadData}
+              className="bg-slate-950 hover:bg-slate-900 text-white text-[10px] font-extrabold uppercase px-3 py-1 rounded-lg transition-colors cursor-pointer"
+            >
+              Reintentar Conexión
+            </button>
+          </div>
+        )}
 
         {/* Tab Subviews Content viewport */}
         <section className="flex-1 overflow-y-auto p-6 relative">

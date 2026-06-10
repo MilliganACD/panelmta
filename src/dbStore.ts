@@ -52,7 +52,7 @@ const DEFAULT_USERS_LIST: User[] = [
 ];
 
 // Helper to save to localStorage in demo mode
-const saveLocalData = (data: {
+export const saveLocalData = (data: {
   products: Product[];
   customers: Customer[];
   ventas: Venta[];
