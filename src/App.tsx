@@ -18,7 +18,8 @@ import {
   closeCashSession,
   saveCashMovement,
   saveUser,
-  deleteUser
+  deleteUser,
+  getLocalData
 } from './dbStore';
 import { Product, Customer, Venta, CashMovement, CashSession, User, CartItem, PaymentMethod } from './types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
@@ -110,8 +111,27 @@ export default function App() {
           setActiveUser(null);
         }
       } catch (err: any) {
-        setErrorMsg('Error al conectar con la base de datos de Supabase. Verifique las variables de entorno o la conexión de red.');
+        setErrorMsg('Error al conectar con la base de datos de Supabase. Usando la última copia local offline.');
         console.error(err);
+        const localData = getLocalData();
+        setProducts(localData.products);
+        setCustomers(localData.customers);
+        setVentas(localData.ventas);
+        setMovements(localData.movements);
+        setSession(localData.session);
+        setUsers(localData.users);
+        
+        // Sync active user session from localStorage cache if present and valid
+        const cachedUser = localStorage.getItem('pos_active_user');
+        if (cachedUser) {
+          try {
+            const parsed = JSON.parse(cachedUser);
+            const matched = localData.users.find(u => u.id === parsed.id);
+            if (matched) {
+              setActiveUser(matched);
+            }
+          } catch (e) {}
+        }
       } finally {
         setLoading(false);
       }

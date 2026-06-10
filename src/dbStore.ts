@@ -70,7 +70,7 @@ const saveLocalData = (data: {
   }
 };
 
-const getLocalData = () => {
+export const getLocalData = () => {
   const products = localStorage.getItem('pos_products');
   const customers = localStorage.getItem('pos_customers');
   const ventas = localStorage.getItem('pos_ventas');
@@ -277,6 +277,16 @@ export const getStoredData = async () => {
       activeUser = users.find(u => u.role === 'ADMIN') || users[0] || DEFAULT_CASHIER;
     }
 
+    // Cache to LocalStorage for offline fallback
+    saveLocalData({
+      products,
+      customers,
+      ventas,
+      movements,
+      session,
+      users
+    });
+
     return {
       products,
       customers,
@@ -287,8 +297,8 @@ export const getStoredData = async () => {
       activeUser
     };
   } catch (err) {
-    console.error('Error fetching data from Supabase, reverting to Local:', err);
-    return getLocalData();
+    console.error('Error fetching data from Supabase:', err);
+    throw err;
   }
 };
 
