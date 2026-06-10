@@ -111,7 +111,7 @@ export default function App() {
           setActiveUser(null);
         }
       } catch (err: any) {
-        setErrorMsg('Error al conectar con la base de datos de Supabase. Usando la última copia local offline.');
+        console.warn('Supabase connection failed, falling back to local data:', err);
         console.error(err);
         const localData = getLocalData();
         setProducts(localData.products);
@@ -584,27 +584,7 @@ export default function App() {
     );
   }
 
-  if (errorMsg) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-900 font-sans p-4">
-        <div className="max-w-md p-6 bg-slate-950 border border-rose-500/30 rounded-2xl text-center space-y-4 shadow-2xl">
-          <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-xl">⚠️</div>
-          <div>
-            <h3 className="text-sm font-black text-white tracking-wider uppercase">Error de Conexión a Base de Datos</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              No se pudo conectar a tu base de datos de Supabase. Asegúrate de configurar las variables de entorno <code className="bg-slate-900 px-1 py-0.5 rounded text-teal-400 font-mono">VITE_SUPABASE_URL</code> y <code className="bg-slate-900 px-1 py-0.5 rounded text-teal-400 font-mono">VITE_SUPABASE_ANON_KEY</code> en tu archivo <code className="bg-slate-900 px-1.5 py-0.5 rounded text-white">.env</code> y tener las tablas creadas con el script SQL.
-            </p>
-          </div>
-          <button 
-            onClick={handleRestoreDefaults}
-            className="w-full py-2.5 bg-teal-650 hover:bg-teal-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors"
-          >
-            Reestablecer Semilla y Reintentar Conexión
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Error message is now non-blocking - app continues with local data
 
   if (!activeUser) {
     return <LoginView users={users} onLogin={handleLogin} />;
