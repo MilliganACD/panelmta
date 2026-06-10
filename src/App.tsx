@@ -180,13 +180,38 @@ export default function App() {
     if (!session || !activeUser) return;
 
     const todayStr = getNowString();
+    let finalCustomerId = ventaData.customerId;
+    let finalCustomerName = ventaData.customerName;
+    let updatedCustomersList = [...customers];
+
+    // Auto-create customer if it's new-customer
+    if (finalCustomerId === 'new-customer' && finalCustomerName.trim() !== '') {
+      const newCustId = `cust-${Date.now()}`;
+      const newCustomer: Customer = {
+        id: newCustId,
+        name: finalCustomerName.trim(),
+        phone: '',
+        creditLimit: 150, // default limit
+        currentDebt: 0,
+        totalPurchases: 0,
+        debts: []
+      };
+      
+      updatedCustomersList = [newCustomer, ...updatedCustomersList];
+      finalCustomerId = newCustId;
+
+      // Sync customer to database
+      saveCustomer(newCustomer).catch(err => {
+        console.error('Error auto-creating customer in Supabase:', err);
+      });
+    }
 
     // Generate Venta Item
     const newVenta: Venta = {
       id: `TRX-${Math.floor(1000 + Math.random() * 9000)}`,
       timestamp: todayStr,
-      customerId: ventaData.customerId,
-      customerName: ventaData.customerName,
+      customerId: finalCustomerId,
+      customerName: finalCustomerName,
       items: ventaData.items.map(cartItem => ({
         productId: cartItem.product.id,
         productName: cartItem.product.name,
@@ -221,8 +246,8 @@ export default function App() {
     });
 
     // B. Update Customer Credit History and debt if registered & contains credit parts
-    const updatedCustomers = customers.map(c => {
-      if (c.id === ventaData.customerId && (ventaData.paymentMethod === 'CREDITO' || ventaData.paymentMethod === 'MIXTO')) {
+    const updatedCustomers = updatedCustomersList.map(c => {
+      if (c.id === finalCustomerId && (ventaData.paymentMethod === 'CREDITO' || ventaData.paymentMethod === 'MIXTO')) {
         const generatedDebts = ventaData.items.map((cartItem, idx) => ({
           id: `debt-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
           productName: cartItem.product.name,
@@ -237,7 +262,7 @@ export default function App() {
           totalPurchases: c.totalPurchases + 1,
           debts: [...c.debts, ...generatedDebts]
         };
-      } else if (c.id === ventaData.customerId) {
+      } else if (c.id === finalCustomerId) {
         // Just general register cash buy count
         return {
           ...c,

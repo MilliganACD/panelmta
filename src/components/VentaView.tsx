@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Product, Customer, CartItem, PaymentMethod, User } from '../types';
-import { Search, ShoppingCart, Trash2, UserPlus, Users, Sparkles, Check, DollarSign, Coins, QrCode, Smartphone, Layers, Receipt, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, UserPlus, Users, Sparkles, Check, DollarSign, Coins, QrCode, Smartphone, Layers, Receipt, AlertTriangle, AlertCircle, X } from 'lucide-react';
 
 interface VentaViewProps {
   products: Product[];
@@ -47,6 +47,8 @@ export default function VentaView({
   // Checkout States
   const [customerType, setCustomerType] = useState<'GENERAL' | 'REGISTRADO'>('GENERAL');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState<string>('');
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('EFECTIVO');
   
   // Mixed or credit partial inputs
@@ -154,6 +156,14 @@ export default function VentaView({
     };
   }, [targetCustomer, cartTotal, paymentMethod, pagoInicial]);
 
+  // Suggestions filter
+  const customerSuggestions = useMemo(() => {
+    if (!customerSearchQuery.trim()) return [];
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(customerSearchQuery.toLowerCase())
+    );
+  }, [customerSearchQuery, customers]);
+
   // Handler for Finalizing Checkout
   const handleFinalize = () => {
     if (cart.length === 0) {
@@ -164,10 +174,13 @@ export default function VentaView({
       triggerToast('⚠️ Por favor abra la caja antes de registrar ventas');
       return;
     }
-    if (customerType === 'REGISTRADO' && !selectedCustomerId) {
-      triggerToast('⚠️ Seleccione un cliente registrado');
+
+    const trimmedQuery = customerSearchQuery.trim();
+    if ((paymentMethod === 'CREDITO' || paymentMethod === 'MIXTO') && trimmedQuery === '') {
+      triggerToast('⚠️ Para fiar o pago mixto debe ingresar un nombre de Cliente');
       return;
     }
+
     if (customerType === 'REGISTRADO' && (paymentMethod === 'CREDITO' || paymentMethod === 'MIXTO') && creditEvaluation.blocked) {
       triggerToast('❌ Compra denegada. Límite de crédito excedido.');
       return;
@@ -184,9 +197,23 @@ export default function VentaView({
       pending = Math.max(0, cartTotal - paid);
     }
 
+    let finalCustomerId = 'general';
+    let finalCustomerName = 'Venta General';
+
+    if (trimmedQuery !== '') {
+      const exactMatch = customers.find(c => c.name.toLowerCase() === trimmedQuery.toLowerCase());
+      if (exactMatch) {
+        finalCustomerId = exactMatch.id;
+        finalCustomerName = exactMatch.name;
+      } else {
+        finalCustomerId = 'new-customer';
+        finalCustomerName = trimmedQuery;
+      }
+    }
+
     onAddVenta({
-      customerId: customerType === 'GENERAL' ? 'general' : selectedCustomerId,
-      customerName: customerType === 'GENERAL' ? 'Venta General' : (targetCustomer?.name || 'Cliente Registrado'),
+      customerId: finalCustomerId,
+      customerName: finalCustomerName,
       items: cart,
       total: cartTotal,
       paymentMethod,
@@ -198,6 +225,9 @@ export default function VentaView({
     setCart([]);
     setMontoRecibido('');
     setPagoInicial(0);
+    setCustomerSearchQuery('');
+    setSelectedCustomerId('');
+    setCustomerType('GENERAL');
     triggerToast('🎉 ¡Venta procesada con éxito!');
   };
 
@@ -416,75 +446,112 @@ export default function VentaView({
           </div>
 
           {/* Customer Selection segment */}
-          <div className="space-y-2 pt-1 border-t border-slate-100">
+          <div className="space-y-2 pt-1 border-t border-slate-100 relative">
             <div className="flex justify-between items-center pb-0.5">
-              <span className="text-xs font-black tracking-wider uppercase text-slate-700">Identificación Cliente</span>
+              <span className="text-xs font-black tracking-wider uppercase text-slate-700">Cliente (Búsqueda / Nuevo)</span>
               {customerType === 'REGISTRADO' && targetCustomer && (
                 <span className={`text-[11px] font-extrabold ${creditEvaluation.blocked ? 'text-rose-600' : 'text-teal-600 font-mono'}`}>
-                  Deuda: S/ {targetCustomer.currentDebt.toFixed(2)} / Límit: S/ {targetCustomer.creditLimit.toFixed(2)}
+                  Deuda: S/ {targetCustomer.currentDebt.toFixed(2)} / Límite: S/ {targetCustomer.creditLimit.toFixed(2)}
                 </span>
               )}
             </div>
             
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setCustomerType('GENERAL')}
-                className={`py-2.5 text-center rounded-xl text-xs font-black border transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5 ${
-                  customerType === 'GENERAL'
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <Users className="w-3.5 h-3.5" />
-                Venta General
-              </button>
-              <button
-                type="button"
-                onClick={() => setCustomerType('REGISTRADO')}
-                className={`py-2.5 text-center rounded-xl text-xs font-black border transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5 ${
-                  customerType === 'REGISTRADO'
-                    ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                Registrado
-              </button>
+            <div className="relative">
+              <input 
+                type="text" 
+                placeholder="Escribe el nombre del cliente..."
+                value={customerSearchQuery}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowSuggestions(false), 200);
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomerSearchQuery(val);
+                  setShowSuggestions(true);
+                  if (val.trim() === '') {
+                    setSelectedCustomerId('');
+                    setCustomerType('GENERAL');
+                  } else {
+                    setCustomerType('REGISTRADO');
+                    const match = customers.find(c => c.name.toLowerCase() === val.trim().toLowerCase());
+                    if (match) {
+                      setSelectedCustomerId(match.id);
+                    } else {
+                      setSelectedCustomerId('new-customer');
+                    }
+                  }
+                }}
+                className="w-full text-xs font-bold p-2.5 pr-8 border border-slate-305 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-slate-800 shadow-xs"
+              />
+              {customerSearchQuery.trim() !== '' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerSearchQuery('');
+                    setSelectedCustomerId('');
+                    setCustomerType('GENERAL');
+                    setShowSuggestions(false);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-450 hover:text-slate-650 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Suggestions floating list dropdown */}
+              {showSuggestions && customerSearchQuery.trim() !== '' && (
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto z-50 divide-y divide-slate-100">
+                  {customerSuggestions.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setCustomerSearchQuery(c.name);
+                        setSelectedCustomerId(c.id);
+                        setCustomerType('REGISTRADO');
+                        setShowSuggestions(false);
+                      }}
+                      className="p-2.5 text-xs hover:bg-teal-50 text-slate-750 font-bold cursor-pointer transition-colors flex justify-between items-center"
+                    >
+                      <span>👤 {c.name}</span>
+                      <span className="text-[10px] text-slate-400 font-medium">Deuda: S/ {c.currentDebt.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {/* Option to create a new customer if typed query has no exact match */}
+                  {!customers.some(c => c.name.toLowerCase() === customerSearchQuery.trim().toLowerCase()) && (
+                    <div
+                      onClick={() => {
+                        setSelectedCustomerId('new-customer');
+                        setCustomerType('REGISTRADO');
+                        setShowSuggestions(false);
+                      }}
+                      className="p-2.5 text-xs hover:bg-emerald-50 text-emerald-800 font-black cursor-pointer transition-colors"
+                    >
+                      ➕ Crear nuevo cliente: "{customerSearchQuery.trim()}"
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Dropdown if customer registered */}
+            {/* Display selected customer info if found */}
             {customerType === 'REGISTRADO' && (
-              <div className="space-y-2 mt-2">
-                <select
-                  value={selectedCustomerId}
-                  onChange={(e) => setSelectedCustomerId(e.target.value)}
-                  className="w-full text-xs font-bold bg-white border border-slate-300 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-800"
-                >
-                  <option value="">-- Seleccionar Cliente --</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} (Préstamo: S/ {c.currentDebt.toFixed(2)} / Límite: S/ {c.creditLimit.toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-                {selectedCustomerId && targetCustomer && (
-                  <div className="p-3.5 rounded-xl bg-amber-50 border-2 border-amber-200 text-amber-900 text-xs font-bold space-y-1.5 shadow-sm">
+              <div className="mt-2">
+                {targetCustomer ? (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold space-y-1 shadow-sm">
                     <p className="flex items-center gap-1.5">
-                      <span className="text-base leading-none">📱</span> 
-                      <span className="text-slate-500 font-semibold">WhatsApp/Tlf:</span> 
-                      <span className="text-slate-900">{targetCustomer.phone}</span>
+                      <span className="text-[10px] text-slate-500 font-semibold">WhatsApp/Tlf:</span> 
+                      <span className="text-slate-900">{targetCustomer.phone || 'Sin registrar'}</span>
                     </p>
                     <p className="flex items-center gap-1.5">
-                      <span className="text-base leading-none">💸</span> 
-                      <span className="text-slate-500 font-semibold">Deuda Actual:</span> 
-                      <span className="text-amber-800 font-extrabold">S/ {targetCustomer.currentDebt.toFixed(2)}</span>
+                      <span className="text-[10px] text-slate-500 font-semibold">Deuda Actual:</span> 
+                      <span className="text-amber-850 font-extrabold">S/ {targetCustomer.currentDebt.toFixed(2)} / Límite: S/ {targetCustomer.creditLimit.toFixed(2)}</span>
                     </p>
-                    <p className="flex items-center gap-1.5">
-                      <span className="text-base leading-none">💼</span> 
-                      <span className="text-slate-500 font-semibold">Compras Realizadas:</span> 
-                      <span className="text-slate-900">{targetCustomer.totalPurchases} transacciones</span>
-                    </p>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-150 text-emerald-800 text-xs font-black shadow-xs flex items-center gap-2">
+                    <span className="text-base leading-none">✨</span>
+                    <span>Cliente Nuevo: El perfil se creará automáticamente al finalizar la venta.</span>
                   </div>
                 )}
               </div>
