@@ -139,7 +139,7 @@ export default function App() {
       }
       
       setIsOffline(true);
-      setErrorMsg('Error al conectar con la base de datos de Supabase.');
+      setErrorMsg(err.message || err.details || String(err));
     } finally {
       setLoading(false);
     }
@@ -612,11 +612,17 @@ export default function App() {
       <div className="h-screen w-screen flex items-center justify-center bg-slate-900 font-sans p-4">
         <div className="max-w-md p-6 bg-slate-950 border border-rose-500/30 rounded-2xl text-center space-y-4 shadow-2xl">
           <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto text-xl">⚠️</div>
-          <div>
+          <div className="space-y-2">
             <h3 className="text-sm font-black text-white tracking-wider uppercase">Error de Conexión a Base de Datos</h3>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               No se pudo conectar a tu base de datos de Supabase. Verifique su conexión a internet y asegúrese de que el servidor esté activo.
             </p>
+            {errorMsg && (
+              <div className="bg-slate-900 border border-slate-800 text-rose-400 text-[10px] font-mono p-3 rounded-lg text-left mt-2 break-all overflow-x-auto max-h-32">
+                <strong>Detalle técnico del error:</strong>
+                <pre className="mt-1 whitespace-pre-wrap">{errorMsg}</pre>
+              </div>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <button 
