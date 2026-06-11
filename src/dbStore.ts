@@ -789,21 +789,6 @@ export const restoreDefaults = async () => {
     ];
     await supabase.from('users').insert(seedUsers);
 
-    const seedProducts = [
-      { id: 'prod-1', name: 'Gatorade Cool Blue 500ml', category: 'Bebidas', price: 4.50, cost: 2.20, stock: 24, low_stock_threshold: 5, sku: 'GAT-CB500', image_url: 'https://images.unsplash.com/photo-1571175351749-e8d06f275d85?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-2', name: 'Quest Protein Bar Choco', category: 'Snacks', price: 12.00, cost: 6.85, stock: 12, low_stock_threshold: 3, sku: 'QS-PB-CHO', image_url: 'https://images.unsplash.com/photo-1622484211148-716598e04141?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-3', name: 'Agua San Mateo 600ml', category: 'Bebidas', price: 2.50, cost: 1.10, stock: 5, low_stock_threshold: 10, sku: 'ASM-600', image_url: 'https://images.unsplash.com/photo-1608885898957-a599fb16ec18?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-4', name: 'Galletas Integrales 6pk', category: 'Galletas', price: 3.80, cost: 1.90, stock: 40, low_stock_threshold: 8, sku: 'GAL-INT-6', image_url: 'https://images.unsplash.com/photo-1558961309-dbdf0003ed31?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-5', name: 'Coca Cola 500ml', category: 'Bebidas', price: 3.50, cost: 1.50, stock: 50, low_stock_threshold: 10, sku: 'CC-500ML', image_url: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-6', name: 'Oreo Original', category: 'Galletas', price: 2.50, cost: 1.20, stock: 15, low_stock_threshold: 5, sku: 'OREO-1R', image_url: 'https://images.unsplash.com/photo-1558961309-dbdf000efec1?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-7', name: 'Chizitos Clasicos', category: 'Snacks', price: 1.50, cost: 0.70, stock: 4, low_stock_threshold: 5, sku: 'CHZ-001', image_url: 'https://images.unsplash.com/photo-1599490659213-e2b9527ec087?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-8', name: 'Sublime Chocolate', category: 'Chocolates', price: 3.00, cost: 1.30, stock: 35, low_stock_threshold: 8, sku: 'SUB-CHO', image_url: 'https://images.unsplash.com/photo-1511381939415-e44015466834?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-9', name: 'Agua Mineral H2O 500ml', category: 'Bebidas', price: 2.00, cost: 0.85, stock: 142, low_stock_threshold: 15, sku: 'H2O-102', image_url: 'https://images.unsplash.com/photo-1548839130-ad1c2e08c4f8?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-10', name: 'Isotónica Blue 600ml', category: 'Bebidas', price: 3.25, cost: 1.50, stock: 64, low_stock_threshold: 10, sku: 'ISO-882', image_url: 'https://images.unsplash.com/photo-1548839130-ad1c2e08c4f8?w=500&auto=format&fit=crop&q=60' },
-      { id: 'prod-11', name: 'Gomitas Loops Dulces', category: 'Dulces', price: 2.00, cost: 0.90, stock: 55, low_stock_threshold: 10, sku: 'GOMI-L1', image_url: 'https://images.unsplash.com/photo-1581798459219-318e76aeef7b?w=500&auto=format&fit=crop&q=60' }
-    ];
-    await supabase.from('products').insert(seedProducts);
-
     await supabase.from('cash_sessions').insert({
       id: 'active',
       status: 'CERRADA',
